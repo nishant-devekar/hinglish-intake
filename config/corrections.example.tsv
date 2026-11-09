@@ -1,0 +1,4 @@
+# Fix names the models mishear: regex<TAB>replacement, one per line.
+# Copy to config/corrections.tsv. Applied after transcription, in order.
+आशा	Asha
+\b[Rr]avee?\b	Ravi

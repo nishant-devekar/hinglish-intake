@@ -1,0 +1,8 @@
+# Names and jargon your calls use, one per line. Copy to config/hotwords.txt.
+# They bias the speech models toward the right spelling.
+Asha
+Ravi
+GST
+UPI
+WhatsApp
+onboarding

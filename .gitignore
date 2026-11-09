@@ -1,0 +1,29 @@
+# Code only. Recordings, transcripts and voice prints are company/personal
+# data; models are multi-GB downloads (see README "Installed").
+.DS_Store
+.venv*/
+__pycache__/
+models/
+out/
+inbox/
+voices/
+requirements/
+eval/clips/
+eval/results/
+eval/full/
+eval/speakers/*/
+eval/gold/*.wav
+eval/gold/*.txt
+*.wav
+*.mp3
+*.mp4
+*.m4a
+*.zip
+# local job store used when running the app/worker without Hugging Face
+store/
+.claude/launch.json
+archive/
+# your own names/jargon and benchmark inputs (examples are committed)
+config/*
+!config/*.example.*
+eval/speakers/calls.json

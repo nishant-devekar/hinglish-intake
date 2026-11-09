@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hinglish Intake</title>
+<!--
+  Static Hugging Face Space (free for organizations, unlike Gradio/Docker).
+  Each teammate signs in with their own HF account; the browser talks to the
+  private dataset directly, so there is no server and no shared token.
+  The processing Mac (bin/worker.py) picks up queued jobs from the same repo.
+  Job layout and job.json fields must match bin/store.py.
+-->
+<script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
+<script type="importmap">
+{ "imports": {
+  "@huggingface/hub": "https://cdn.jsdelivr.net/npm/@huggingface/hub@2.17.6/+esm",
+  "marked": "https://cdn.jsdelivr.net/npm/marked@15.0.12/+esm",
+  "dompurify": "https://cdn.jsdelivr.net/npm/dompurify@3.2.6/+esm",
+  "jszip": "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm"
+} }
+</script>
+<style>
+:root { --bg:#f7f8fa; --card:#fff; --ink:#1b1f24; --muted:#5f6b7a; --line:#e3e7ec;
+        --accent:#1f7a4d; --accent-ink:#fff; --warn:#a15c00; --bad:#b42318; --chip:#eef2f6; }
+@media (prefers-color-scheme: dark) { :root { --bg:#111418; --card:#1a1e24; --ink:#e7eaee; --muted:#9aa5b1;
+        --line:#2a3038; --accent:#3fb37a; --accent-ink:#06150d; --warn:#f0a43a; --bad:#ff6b5f; --chip:#232a33; } }
+* { box-sizing:border-box }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif }
+main { max-width:1040px; margin:0 auto; padding:20px 16px 60px }
+header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px }
+header h1 { font-size:22px; margin:0; flex:1 }
+.who { color:var(--muted); font-size:14px }
+button, .btn { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--ink);
+  padding:7px 14px; border-radius:8px; cursor:pointer }
+button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600 }
+button:disabled { opacity:.5; cursor:default }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:16px }
+.tabs { display:flex; gap:4px; margin-bottom:12px; border-bottom:1px solid var(--line) }
+.tabs button { border:none; border-bottom:2px solid transparent; border-radius:0; background:none; color:var(--muted) }
+.tabs button.on { color:var(--ink); border-bottom-color:var(--accent); font-weight:600 }
+.drop { border:2px dashed var(--line); border-radius:12px; padding:28px; text-align:center; color:var(--muted); cursor:pointer }
+.drop.over { border-color:var(--accent); color:var(--ink) }
+.files { list-style:none; padding:0; margin:12px 0 0 }
+.files li { display:flex; gap:8px; align-items:center; padding:4px 0; border-bottom:1px solid var(--line) }
+.files li span:first-child { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.row { display:flex; gap:12px; flex-wrap:wrap; margin-top:14px; align-items:end }
+label { display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--muted) }
+label.inline { flex-direction:row; align-items:center; gap:6px }
+input[type=text], input[type=number] { font:inherit; padding:7px 10px; border:1px solid var(--line); border-radius:8px;
+  background:var(--bg); color:var(--ink); min-width:0 }
+.grow { flex:1; min-width:200px }
+progress { width:100%; height:8px; margin-top:12px }
+.msg { margin-top:10px; font-size:14px }
+table { width:100%; border-collapse:collapse; font-size:14px }
+th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top }
+th { color:var(--muted); font-weight:500 }
+tbody tr { cursor:pointer } tbody tr:hover { background:var(--chip) }
+tbody tr.sel { background:var(--chip) }
+.badge { display:inline-block; padding:1px 8px; border-radius:99px; font-size:12px; background:var(--chip); white-space:nowrap }
+.badge.done { color:var(--accent) } .badge.failed { color:var(--bad) } .badge.processing, .badge.queued { color:var(--warn) }
+.tablewrap { overflow-x:auto }
+.notes { overflow-wrap:anywhere } .notes table { font-size:13px } .notes pre { overflow-x:auto; background:var(--chip); padding:10px; border-radius:8px }
+pre.log { background:var(--chip); padding:10px; border-radius:8px; font-size:12px; overflow-x:auto; max-height:260px }
+.reslist a { color:var(--accent); cursor:pointer } .muted { color:var(--muted) } .hide { display:none !important }
+code { background:var(--chip); padding:1px 5px; border-radius:4px; font-size:13px }
+pre.code { background:var(--chip); padding:12px; border-radius:8px; overflow-x:auto; font-size:13px }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Hinglish Intake</h1>
+    <span class="who" id="who"></span>
+    <button id="signout" class="hide">Sign out</button>
+  </header>
+
+  <section id="signedout" class="card hide">
+    <p>Upload calls, screen recordings, voice notes or transcripts. You get back a speaker-labelled
+      transcript, meeting notes with decisions and action items, and a bundle ready for Claude.</p>
+    <p class="muted">Sign in with your Hugging Face account (a member of <b id="orgname"></b>). On the consent
+      screen, make sure that organization is ticked.</p>
+    <button class="primary" id="signin">Sign in with Hugging Face</button>
+  </section>
+
+  <section id="app" class="hide">
+    <nav class="tabs">
+      <button data-tab="new" class="on">New job</button>
+      <button data-tab="jobs">Jobs</button>
+      <button data-tab="claude">Use with Claude</button>
+    </nav>
+
+    <div data-pane="new" class="card">
+      <div class="drop" id="drop">Drop files here or click to choose — audio, video, Meet captions (.srt/.vtt),
+        transcripts (.txt/.md/.docx). Put a call and its captions in the same job.</div>
+      <input type="file" id="picker" multiple class="hide">
+      <ul class="files" id="filelist"></ul>
+      <div class="row">
+        <label class="grow">Title<input type="text" id="title" placeholder="e.g. Weekly review with Asha"></label>
+        <label>People on the call (0 = detect)<input type="number" id="speakers" value="0" min="0" max="20" style="width:90px"></label>
+        <label class="inline"><input type="checkbox" id="ocr" checked> Read on-screen text in videos</label>
+        <button class="primary" id="submit">Submit</button>
+      </div>
+      <progress id="prog" class="hide" max="1" value="0"></progress>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div data-pane="jobs" class="hide">
+      <div class="card">
+        <div class="row" style="margin:0 0 8px"><span class="grow muted" id="jobsinfo"></span>
+          <button id="refresh">Refresh</button></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>submitted</th><th>title</th><th>by</th><th>status</th><th>files</th></tr></thead>
+          <tbody id="jobs"></tbody>
+        </table></div>
+      </div>
+      <div class="card hide" id="detail"></div>
+    </div>
+
+    <div data-pane="claude" class="card hide" id="claudehelp"></div>
+  </section>
+</main>
+
+<script type="module">
+import { oauthLoginUrl, oauthHandleRedirectIfPresent, listFiles, downloadFile, uploadFilesWithProgress }
+  from "@huggingface/hub";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+import JSZip from "jszip";
+
+const ORG = "your-org", ORG_ID = "";  // set by deploy/setup_hf.py
+document.getElementById("orgname").textContent = ORG;
+const repo = { type: "dataset", name: `${ORG}/intake` };
+const STATUS = { queued: "⏳ queued", processing: "⚙️ processing", done: "✅ done", failed: "❌ failed" };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// --- sign-in ------------------------------------------------------------------
+let auth = null;
+try { auth = JSON.parse(localStorage.getItem("oauth") || "null"); } catch { auth = null; }
+if (auth && auth.accessTokenExpiresAt && new Date(auth.accessTokenExpiresAt) < new Date()) auth = null;
+auth ||= await oauthHandleRedirectIfPresent();
+if (auth) localStorage.setItem("oauth", JSON.stringify(auth));
+const accessToken = auth?.accessToken;
+const me = auth?.userInfo?.preferred_username || auth?.userInfo?.name;
+
+$("signin").onclick = async () => {
+  const scopes = window.huggingface?.variables?.OAUTH_SCOPES;
+  // orgIds pre-selects the team org on the consent screen.
+  window.location.href = (await oauthLoginUrl({ scopes })) + `&prompt=consent&orgIds=${ORG_ID}`;
+};
+$("signout").onclick = () => { localStorage.removeItem("oauth"); location.href = location.href.replace(/[?#].*$/, ""); };
+
+if (!auth) { $("signedout").classList.remove("hide"); }
+else {
+  $("app").classList.remove("hide"); $("signout").classList.remove("hide");
+  $("who").textContent = `signed in as ${me}`;
+}
+
+// --- tabs ---------------------------------------------------------------------
+document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));
+  document.querySelectorAll("[data-pane]").forEach((p) => p.classList.toggle("hide", p.dataset.pane !== b.dataset.tab));
+  if (b.dataset.tab === "jobs") loadJobs();
+});
+
+// --- new job ------------------------------------------------------------------
+let picked = [];
+const human = (n) => n > 1e9 ? (n / 1e9).toFixed(1) + " GB" : n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.ceil(n / 1e3) + " KB";
+function showFiles() {
+  $("filelist").innerHTML = picked.map((f, i) =>
+    `<li><span>${esc(f.name)}</span><span class="muted">${human(f.size)}</span><button data-i="${i}">✕</button></li>`).join("");
+  $("filelist").querySelectorAll("button").forEach((b) => b.onclick = () => { picked.splice(+b.dataset.i, 1); showFiles(); });
+}
+const add = (list) => { for (const f of list) if (!picked.some((p) => p.name === f.name)) picked.push(f); showFiles(); };
+$("drop").onclick = () => $("picker").click();
+$("picker").onchange = (e) => { add(e.target.files); e.target.value = ""; };
+["dragover", "dragenter"].forEach((ev) => $("drop").addEventListener(ev, (e) => { e.preventDefault(); $("drop").classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => $("drop").addEventListener(ev, (e) => { e.preventDefault(); $("drop").classList.remove("over"); }));
+$("drop").addEventListener("drop", (e) => add(e.dataTransfer.files));
+
+const pad = (n) => String(n).padStart(2, "0");
+function isoLocal(d) {          // same shape as Python's isoformat(timespec="seconds") with offset
+  const o = -d.getTimezoneOffset(), s = o >= 0 ? "+" : "-";
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` +
+         `${s}${pad(Math.floor(Math.abs(o) / 60))}:${pad(Math.abs(o) % 60)}`;
+}
+function newId(title, d) {      // matches bin/store.py new_id()
+  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  const slug = (title || "job").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "job";
+  return `${stamp}-${slug}-${crypto.getRandomValues(new Uint16Array(1))[0].toString(16).padStart(4, "0")}`;
+}
+const safeName = (n) => n.replace(/[\/\\]/g, "_");
+
+$("submit").onclick = async () => {
+  if (!picked.length) { $("msg").textContent = "Add at least one file."; return; }
+  const d = new Date(), title = $("title").value.trim();
+  const job = { id: newId(title, d), title, submitted_by: me, submitted_at: isoLocal(d),
+    options: { speakers: +$("speakers").value > 0 ? +$("speakers").value : -1, ocr: $("ocr").checked },
+    status: "queued", files: picked.map((f) => safeName(f.name)), log: [] };
+  const base = `jobs/${job.id}`;
+  const files = picked.map((f) => ({ path: `${base}/input/${safeName(f.name)}`, content: f }));
+  files.push({ path: `${base}/job.json`, content: new Blob([JSON.stringify(job, null, 1)], { type: "application/json" }) });
+  const total = picked.reduce((a, f) => a + f.size, 0) || 1, done = {};
+  $("submit").disabled = true; $("prog").classList.remove("hide"); $("prog").value = 0;
+  $("msg").textContent = "Uploading…";
+  try {
+    for await (const ev of uploadFilesWithProgress({ repo, accessToken, files, commitTitle: `new job ${job.id}` })) {
+      if (ev.event === "fileProgress" && ev.state === "uploading") {
+        const f = picked.find((p) => ev.path.endsWith("/" + safeName(p.name)));
+        if (f) { done[ev.path] = ev.progress * f.size; $("prog").value = Object.values(done).reduce((a, b) => a + b, 0) / total; }
+      } else if (ev.event === "phase") $("msg").textContent = { preuploading: "Preparing…", uploadingLargeFiles: "Uploading…", committing: "Saving…" }[ev.phase];
+    }
+    $("prog").value = 1;
+    $("msg").innerHTML = `Queued <b>${esc(job.title || job.id)}</b> (${picked.length} file${picked.length > 1 ? "s" : ""}). ` +
+      `The processing Mac picks it up within a minute when it's on; a 1-hour call takes about 6 minutes. See <b>Jobs</b>.`;
+    picked = []; showFiles(); $("title").value = "";
+  } catch (e) {
+    $("msg").textContent = `Upload failed: ${e.message}. If it mentions permissions, sign out and sign in again with the ${ORG} organization ticked.`;
+  } finally { $("submit").disabled = false; setTimeout(() => $("prog").classList.add("hide"), 1500); }
+};
+
+// --- jobs ---------------------------------------------------------------------
+const cache = new Map();      // job.json path -> { oid, job }
+let jobs = [], selected = null, resultFiles = {};
+
+async function loadJobs() {
+  try {
+    const entries = [];
+    for await (const f of listFiles({ repo, path: "jobs", recursive: true, accessToken })) entries.push(f);
+    resultFiles = {};
+    for (const f of entries) {
+      const m = f.path.match(/^jobs\/([^/]+)\/result\/(.+)$/);
+      if (m && f.type === "file") (resultFiles[m[1]] ||= []).push({ rel: m[2], size: f.size });
+    }
+    const metas = entries.filter((f) => /^jobs\/[^/]+\/job\.json$/.test(f.path));
+    await Promise.all(metas.map(async (f) => {      // only re-read job.json files that changed
+      if (cache.get(f.path)?.oid === f.oid) return;
+      const blob = await downloadFile({ repo, path: f.path, accessToken });
+      cache.set(f.path, { oid: f.oid, job: JSON.parse(await blob.text()) });
+    }));
+    jobs = metas.map((f) => cache.get(f.path).job).sort((a, b) => b.submitted_at.localeCompare(a.submitted_at));
+    $("jobsinfo").textContent = `${jobs.length} job${jobs.length === 1 ? "" : "s"} · updated ${new Date().toLocaleTimeString()}`;
+    $("jobs").innerHTML = jobs.map((j) => `<tr data-id="${esc(j.id)}" class="${j.id === selected ? "sel" : ""}">
+      <td>${esc(j.submitted_at.slice(0, 16).replace("T", " "))}</td><td>${esc(j.title || "—")}</td><td>${esc(j.submitted_by)}</td>
+      <td><span class="badge ${esc(j.status)}">${STATUS[j.status] || esc(j.status)}</span></td><td>${esc(j.files.join(", "))}</td></tr>`).join("")
+      || `<tr><td colspan="5" class="muted">No jobs yet.</td></tr>`;
+    $("jobs").querySelectorAll("tr[data-id]").forEach((r) => r.onclick = () => openJob(r.dataset.id));
+    if (selected) openJob(selected, true);
+  } catch (e) {
+    $("jobsinfo").textContent = `Couldn't load jobs: ${e.message}`;
+  }
+}
+
+async function text(path) {
+  const b = await downloadFile({ repo, path, accessToken });
+  return b ? b.text() : null;
+}
+// downloadFile returns a lazy XetBlob: only its own methods (text, arrayBuffer)
+// fetch the content; URL.createObjectURL and JSZip read the empty native Blob
+// underneath and saved 0-byte files. Copy the bytes into a real Blob, and
+// check the length against the listing so a short download is an error.
+async function bytes(path, size) {
+  const b = await downloadFile({ repo, path, accessToken });
+  if (!b) throw new Error(`not found: ${path}`);
+  const out = await b.arrayBuffer();
+  if (size != null && out.byteLength !== size) throw new Error(`${path}: got ${out.byteLength} of ${size} bytes`);
+  return [out, b.type];
+}
+async function blob(path, size) {
+  const [buf, type] = await bytes(path, size);
+  return new Blob([buf], { type });
+}
+function saveBlob(blob, name) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+async function openJob(id, quiet) {
+  const j = jobs.find((x) => x.id === id); if (!j) return;
+  const changed = selected !== id || $("detail").dataset.status !== j.status;
+  selected = id;
+  $("jobs").querySelectorAll("tr").forEach((r) => r.classList.toggle("sel", r.dataset.id === id));
+  if (quiet && !changed) return;
+  const det = $("detail"); det.classList.remove("hide"); det.dataset.status = j.status;
+  const files = (resultFiles[id] || []).sort((a, b) => a.rel.localeCompare(b.rel));
+  const shown = files.filter((f) => !/frames\/frame-\d+\.jpg$/.test(f.rel));
+  const frames = files.length - shown.length;
+  det.innerHTML = `<h2 style="margin-top:0">${esc(j.title || j.id)}</h2>
+    <p><span class="badge ${esc(j.status)}">${STATUS[j.status] || esc(j.status)}</span>
+      by ${esc(j.submitted_by)} · ${esc(j.submitted_at.slice(0, 16).replace("T", " "))} · ${esc(j.files.join(", "))}</p>
+    ${j.error ? `<p style="color:var(--bad)"><b>Error:</b> ${esc(j.error)}</p>` : ""}
+    ${j.log?.length ? `<details><summary>Log</summary><pre class="log">${esc(j.log.slice(-60).join("\n"))}</pre></details>` : ""}
+    ${j.status === "done" ? `<div class="row" style="margin:14px 0">
+        <button class="primary" id="dlbundle">bundle.md — for claude.ai</button>
+        ${files.filter((f) => f.rel.endsWith("/evidence.pdf")).map((f) =>
+          `<button class="dlpdf" data-rel="${esc(f.rel)}">${esc(f.rel.split("/")[0])} — evidence.pdf (screenshots)</button>`).join("")}
+        <button id="dlzip">Everything (.zip)</button></div>
+      ${files.some((f) => f.rel.endsWith("/evidence.pdf")) ? `<p class="muted">For claude.ai, attach <b>bundle.md</b> and each
+        <b>evidence.pdf</b>: the PDF shows every scene's screenshot next to what was said while it was on screen.</p>` : ""}
+      <details><summary>All result files (${shown.length}${frames ? ` + ${frames} video frames` : ""})</summary>
+        <ul class="reslist">${shown.map((f) => `<li><a data-rel="${esc(f.rel)}">${esc(f.rel)}</a> <span class="muted">${human(f.size)}</span></li>`).join("")}</ul></details>
+      <div class="notes" id="notes"><p class="muted">Loading notes…</p></div>` : ""}`;
+  if (j.status !== "done") return;
+  const base = `jobs/${id}/result/`;
+  const sizeOf = Object.fromEntries(files.map((f) => [f.rel, f.size]));
+  const save = async (rel, name) => {
+    try { saveBlob(await blob(base + rel, sizeOf[rel]), name); }
+    catch (e) { alert(`Download failed: ${e.message}`); }
+  };
+  $("dlbundle").onclick = () => save("bundle.md", `${id}-bundle.md`);
+  det.querySelectorAll(".dlpdf").forEach((b) => b.onclick = () =>
+    save(b.dataset.rel, `${id}-${b.dataset.rel.replace(/\//g, "_")}`));
+  det.querySelectorAll(".reslist a").forEach((a) => a.onclick = () =>
+    save(a.dataset.rel, a.dataset.rel.replace(/\//g, "_")));
+  $("dlzip").onclick = async () => {
+    $("dlzip").disabled = true; $("dlzip").textContent = "Downloading…";
+    try {
+      // Each file costs a few round trips to the Hub, so fetch several at once
+      // (83 files: ~65 s one by one, ~8 s twelve at a time). Packing is instant:
+      // the files are stored, not recompressed (jpg, m4a, pdf already are).
+      const zip = new JSZip(), total = files.reduce((a, f) => a + f.size, 0);
+      let next = 0, got = 0, stop = false;
+      const worker = async () => {
+        try {
+          while (!stop && next < files.length) {
+            const f = files[next++];
+            zip.file(`${id}/${f.rel}`, (await bytes(base + f.rel, f.size))[0]);
+            got += f.size;
+            if (!stop) $("dlzip").textContent = `Downloading… ${human(got)} of ${human(total)}`;
+          }
+        } catch (e) { stop = true; throw e; }     // one failure ends the others too
+      };
+      await Promise.all(Array.from({ length: 12 }, worker));
+      $("dlzip").textContent = "Saving…";
+      saveBlob(await zip.generateAsync({ type: "blob", compression: "STORE" }), `${id}.zip`);
+    } catch (e) {
+      alert(`Couldn't build the zip: ${e.message}`);
+    } finally {
+      $("dlzip").disabled = false; $("dlzip").textContent = "Everything (.zip)";
+    }
+  };
+  const notes = await text(base + "notes.md");
+  $("notes").innerHTML = notes ? DOMPurify.sanitize(marked.parse(notes)) : `<p class="muted">No notes.</p>`;
+}
+$("refresh").onclick = loadJobs;
+if (auth) setInterval(() => { if (!document.querySelector('[data-pane="jobs"]').classList.contains("hide")) loadJobs(); }, 30000);
+
+// --- Claude help ----------------------------------------------------------------
+$("claudehelp").innerHTML = `
+  <h3 style="margin-top:0">Claude Code (terminal or desktop)</h3>
+  <p>One-time setup; afterwards everything the team has processed is a folder Claude can read, with
+    skills <code>/meeting-notes</code>, <code>/decisions</code>, <code>/actions</code>, <code>/search</code>.</p>
+  <pre class="code">pip install -U huggingface_hub
+hf auth login            # your own HF account, ${ORG} org ticked
+hf download ${repo.name} --repo-type dataset --local-dir hinglish-intake \\
+  --include "CLAUDE.md" ".claude/*" "jobs/*/job.json" "jobs/*/result/*"
+cd hinglish-intake && claude</pre>
+  <p>Re-run the <code>hf download</code> line to pull new jobs. Then just ask, e.g. <i>"what did Asha decide
+    about pricing this week?"</i> or <i>"/actions Ravi"</i>.</p>
+  <h3>claude.ai (web / desktop chat)</h3>
+  <p>Open a job under <b>Jobs</b>, download <b>bundle.md</b> (and, for videos, <b>evidence.pdf</b>) and drop them
+    into a chat — or add them to a claude.ai <b>Project</b> so every chat there knows the meeting. The bundle has
+    the notes and the full transcript with speakers and timestamps; for videos, the speech is grouped under each
+    scene with its on-screen text, and evidence.pdf shows the matching screenshots.</p>`;
+</script>
+</body>
+</html>
