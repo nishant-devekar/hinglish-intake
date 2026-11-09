@@ -27,3 +27,4 @@ archive/
 config/*
 !config/*.example.*
 eval/speakers/calls.json
+!docs/team-call.mp3

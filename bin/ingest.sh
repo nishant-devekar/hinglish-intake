@@ -58,14 +58,16 @@ DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$SRC" 2>/dev/n
 DUR_INT=${DUR%.*}; DUR_INT=${DUR_INT:-0}
 HAS_AUDIO=$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$SRC" 2>/dev/null | head -1)
 VINFO=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of csv=p=0 "$SRC" 2>/dev/null || echo "?")
-printf '    %ss, video: %s, audio: %s\n' "$DUR_INT" "$VINFO" "$([ -n "$HAS_AUDIO" ] && echo yes || echo no)"
+printf '    %ss, video: %s, audio: %s\n' "$DUR_INT" "${VINFO:-none}" "$([ -n "$HAS_AUDIO" ] && echo yes || echo no)"
 
 # --- frames ------------------------------------------------------------
 # Scene mode (bin/frames.py) looks at every second and keeps one sharp
 # screenshot per distinct screen; it needs the .venv. Fixed rates are there
 # for footage that changes continuously.
 PY="$ROOT/.venv/bin/python"
-if [ "$MODE" = "scene" ] && [ -x "$PY" ]; then
+if [ -z "$VINFO" ] || [ "$VINFO" = "?" ]; then
+  N=0; printf '    audio only: no frames\n'
+elif [ "$MODE" = "scene" ] && [ -x "$PY" ]; then
   "$PY" "$ROOT/bin/frames.py" "$SRC" "$OUT/frames" ${OCR:+--ocr}
   N=$(find "$OUT/frames" -name 'frame-*.jpg' | wc -l | tr -d ' ')
 else

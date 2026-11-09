@@ -4,6 +4,11 @@
 and Marathi into speaker-labelled transcripts, screenshots and cited meeting
 notes that Claude can read. Everything runs on your Mac.**
 
+![A 40-second Hinglish call becomes a two-speaker transcript, English in Latin script and Hindi in Devanagari](docs/demo.gif)
+
+<sub>A fictional call made with macOS voices, transcribed on a base M4. The wait is shown at 6× speed. Try it yourself with
+`bin/ingest.sh docs/team-call.mp3 --speakers 2`. How the demo was made: [docs/DEMO.md](docs/DEMO.md).</sub>
+
 Claude can't open a video or audio file. Most speech-to-text tools also do
 badly on Indian business calls: people switch between Hindi and English
 mid-sentence, Marathi comes out as Hindi, Whisper makes up text during
@@ -38,6 +43,7 @@ numbers are in [`eval/REPORT.md`](eval/REPORT.md).
 - macOS on Apple Silicon (M1 or later). It uses MLX, and macOS Vision for OCR.
 - 16 GB RAM is comfortable. The core models need about 3 GB of disk; all of them need about 20 GB.
 - [Homebrew](https://brew.sh): `ffmpeg`, `uv`, optionally `whisper-cpp`.
+- Xcode Command Line Tools (`xcode-select --install`) for on-screen text (`--ocr`).
 - Optional: [Claude Code](https://claude.com/claude-code), logged in, for meeting notes.
 
 ## Install
