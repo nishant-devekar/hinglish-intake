@@ -4,7 +4,7 @@
 and Marathi into speaker-labelled transcripts, screenshots and cited meeting
 notes that Claude can read. Everything runs on your Mac.**
 
-Use it as an agent skill: [Hinglish Intake on Agensi](https://www.agensi.io/skills/hinglish-intake-hindi-english-call-transcripts-notes)
+Use it as an agent skill: [Hinglish Intake on Agensi](https://www.agensi.io/r/NISHANTDEVEKAR?to=/skills/hinglish-intake-hindi-english-call-transcripts-notes&utm_source=github)
 (free), or clone this repo. [`SKILL.md`](SKILL.md) at the root works with
 Claude Code, Codex CLI, Cursor and other agents that can run shell commands.
 
