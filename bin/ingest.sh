@@ -2,11 +2,12 @@
 # Video intake: turn a video into frames + a timestamped transcript.
 #
 #   ingest.sh <video> [--scene | --fps 0.2 | --every 5]
-#             [--engine tara|tara-torch|qwen3|marathi|vibevoice|whisper] [--speakers N] [--ocr]
+#             [--engine auto|tara|tara-torch|qwen3|marathi|vibevoice|whisper] [--speakers N] [--ocr]
 #             [--model large-v3-turbo]
 #
-# --engine picks the speech model (default tara: Hinglish-tuned Whisper, with
-# VAD + speaker labels; see eval/REPORT.md). whisper is the old whisper.cpp
+# --engine picks the speech model (default auto: Tara, the Hinglish-tuned Whisper,
+# with Marathi stretches redone by IndicWhisper when those models are installed;
+# VAD + speaker labels either way; see eval/REPORT.md). whisper is the old whisper.cpp
 # path and needs only brew, no .venv; --model applies to it alone.
 #
 # Output lands in ../out/<video-basename>/ as:
@@ -31,7 +32,7 @@ die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 SRC="$1"; shift
 [ -f "$SRC" ] || die "no such file: $SRC"
 
-MODE="scene"; FPS=""; EVERY=""; MODEL="large-v3-turbo"; ENGINE="tara"; SPEAKERS=""; OCR=""
+MODE="scene"; FPS=""; EVERY=""; MODEL="large-v3-turbo"; ENGINE="auto"; SPEAKERS=""; OCR=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --scene) MODE="scene"; shift; [[ "${1:-}" =~ ^[0-9.]+$ ]] && shift ;;   # old --scene N: value unused
