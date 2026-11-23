@@ -4,6 +4,10 @@
 and Marathi into speaker-labelled transcripts, screenshots and cited meeting
 notes that Claude can read. Everything runs on your Mac.**
 
+Use it as an agent skill: [Hinglish Intake on Agensi](https://www.agensi.io/skills/hinglish-intake-hindi-english-call-transcripts-notes)
+(free), or clone this repo. [`SKILL.md`](SKILL.md) at the root works with
+Claude Code, Codex CLI, Cursor and other agents that can run shell commands.
+
 ![A 40-second Hinglish call becomes a two-speaker transcript, English in Latin script and Hindi in Devanagari](docs/demo.gif)
 
 <sub>A fictional call made with macOS voices, transcribed on a base M4. The wait is shown at 6× speed. Try it yourself with
